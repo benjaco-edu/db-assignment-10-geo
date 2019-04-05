@@ -1,4 +1,4 @@
-# DB Assingment 10 geo data
+# DB Assignment 10 geo data
 
 https://github.com/datsoftlyngby/soft2019spring-databases/blob/master/assignments/assignment10.md
 
@@ -59,6 +59,8 @@ SET autocommit=1;
 
 ### How many parks are located in exposed areas?
 
+_Query_
+
 ```sql
 with parkregister_extended as (select *, ST_Area(wkb_geometry) as realm2 from parkregister)
 
@@ -75,6 +77,8 @@ order by percent_park_area desc;
 ```
 
 I add the number of parks per square kilometer, and the percent of the area which is park which I think is more because it takes care of big parks, the number can be a little screwed if the park only touches the area. I could not find any function to say how much of the area there where overlapping.
+
+_Result_
 
 ```
 +-------------------+--------------------+-------------+--------------------+----------------------+
@@ -99,10 +103,75 @@ I add the number of parks per square kilometer, and the percent of the area whic
 
 ### How many trees are located in exposed areas?
 
+_Query_
 
+```sql
+select byomraade,
+       delomraade,
+       count(gadetraer.id)  as "no_of_trees",
+       count(gadetraer.id) / (m2 / 1000000) as "no_of_trees_per_m2"
+from udsatte_byomraader, gadetraer
+where st_within(gadetraer.wkb_geometry, udsatte_byomraader.wkb_geometry)
+group by udsatte_byomraader.id
+order by no_of_trees_per_m2 desc;
+```
+
+Again, it is up against the size of the area
+
+_Result_
+
+```
++-------------------+--------------------------+-------------+--------------------+
+| byomraade         | delomraade               | no_of_trees | no_of_trees_per_m2 |
++-------------------+--------------------------+-------------+--------------------+
+| Nørrebro          | Ved Bispeengbuen         |         260 |          1278.2694 |
+| Nørrebro          | Ved Jagtvej              |          62 |           940.8194 |
+| Amager/Sundby     | Ved Frankrigsgade        |          55 |           627.8539 |
+| Nørrebro          | Ved Jagtvej              |          74 |           590.1116 |
+| Valby/Sydhavnen   | Sydhavnen                |        1340 |           524.7494 |
+| Nordvest/Ryparken | Ryparken                 |         570 |           500.6588 |
+| Nørrebro          | Indre Nørrebro           |         176 |           423.7900 |
+| Amager/Sundby     | Urbanplanen mv.          |         318 |           300.1699 |
+| Nordvest/Ryparken | Ved Bispebjerg Parkallé  |          65 |           297.7554 |
+| Nordvest/Ryparken | Nordvest                 |         721 |           272.4456 |
+| Valby/Sydhavnen   | Ved Kulbanevej           |         142 |           271.5624 |
+| Tingbjerg/Husum   | Tingbjerg/Husum          |         600 |           270.1607 |
+| Valby/Sydhavnen   | Ved Valby Langgade       |          54 |           265.0957 |
+| Valby/Sydhavnen   | Ved Folehaven            |         145 |           257.1834 |
+| Nørrebro          | Ydre Nørrebro            |         247 |           251.1439 |
+| Amager/Sundby     | Ved Gyldenrisvej         |          31 |           106.0917 |
+| Nordvest/Ryparken | Ved Bispebjerg Parkallé  |           6 |            36.6077 |
++-------------------+--------------------------+-------------+--------------------+
+
+```
 
 ### How many bike racks are places along routes for heavy traffic?
 
+
+_Query_
+
+```sql
+with heavy_roads as (select ST_GeomFromText(ST_ASTEXT(ST_Buffer(ST_GeomFromText(ST_AsText(wkb_geometry), 0), 0.00025)), 4326) as area, id, vej from tungvognsnet)
+select
+       count(*) as "no_racks",
+       sum(cykelstativ.antal_pladser) as "no_spaces"
+from heavy_roads, cykelstativ
+where st_within(cykelstativ.wkb_geometry, heavy_roads.area);
+```
+
+Here, I have queried the number of bike racks and individual bike spaces within 25 meters of the center of a heavy road.
+
+A lot of the buffer and distance functions wasn't supported for lines on a sphere, so I casted it to a flat map, modified the geo area, and casted it back, the loss in precision is next to nothing accordingly to my testing, At least for our area of the globe.
+
+_Result_
+
+```
++----------+-----------+
+| no_racks | no_spaces |
++----------+-----------+
+|      642 |      9141 |
++----------+-----------+
+```
 
 ## Cleanup
 
